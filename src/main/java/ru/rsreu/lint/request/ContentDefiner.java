@@ -41,7 +41,6 @@ public class ContentDefiner {
                     • Регистр ключевых слов
                     
                     Используйте меню ниже.""");
-
             default -> new BotResponse(ResponseType.UNKNOWN, "Неизвестная команда.");
         };
     }
@@ -53,8 +52,9 @@ public class ContentDefiner {
     private String formatOption(String optionCode) {
         return switch (optionCode) {
             case "toggle_optimize" -> "Оптимизация";
+            case "toggle_standards" -> "Стандарты";
             case "toggle_documentation" -> "Документация";
-            case "toggle_syntax_highlight" -> "Подсветка синтаксиса";
+            case "toggle_tests" -> "Тесты";
             default -> "Неизвестный параметр";
         };
     }

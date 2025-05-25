@@ -1,22 +1,29 @@
 package ru.rsreu.lint.request;
 
+import chat.giga.client.GigaChatClient;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
+import ru.rsreu.lint.ai.GigaChatClientRegister;
+import ru.rsreu.lint.ai.PromtFormer;
+import ru.rsreu.lint.ai.RequestSender;
+import ru.rsreu.lint.ai.ResponseFormater;
 import ru.rsreu.lint.enums.BotMode;
 import ru.rsreu.lint.enums.ResponseType;
 import ru.rsreu.lint.response.BotResponse;
 import ru.rsreu.lint.response.ResponseHandler;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class CodeConverterBot extends TelegramLongPollingBot {
 
     private final String BOT_USERNAME;
-
     private final String BOT_TOKEN;
-
     private final ContentDefiner contentDefiner = new ContentDefiner();
-
     private final ResponseHandler responseHandler;
 
     public CodeConverterBot(String botToken, String botUsername) {
@@ -33,30 +40,28 @@ public class CodeConverterBot extends TelegramLongPollingBot {
 
             if (ResponseHandler.isExpectingCodeInput()) {
                 String selectedLanguage = ResponseHandler.getSelectedLanguage();
-                String selectedSqlDialect = ResponseHandler.getSelectedSqlDialect();
                 BotMode mode = ResponseHandler.getCurrentMode();
 
-                System.out.println("=== Получен код ===");
-                System.out.println("Код:\n" + messageText);
+                GigaChatClient gigaChatClient = GigaChatClientRegister.register();
+                String prompt = PromtFormer.formProgrammingConvertPromt(
+                        selectedLanguage,
+                        messageText,
+                        ResponseHandler.isOptimize(),
+                        ResponseHandler.isDocumentation(),
+                        ResponseHandler.isStandards(),
+                        ResponseHandler.isTests()
+                );
 
-                if (mode == BotMode.LANGUAGE_TRANSLATION) {
-                    System.out.println("Режим: Перевод между ЯП");
-                    System.out.println("Выбранный язык: " + formatLang(selectedLanguage));
-                    System.out.println("Оптимизация: " + (ResponseHandler.isOptimize() ? "включена" : "выключена"));
-                    System.out.println("Документация: " + (ResponseHandler.isDocumentation() ? "включена" : "выключена"));
-                    System.out.println("Подсветка синтаксиса: " + (ResponseHandler.isSyntaxHighlight() ? "включена" : "выключена"));
+                RequestSender requestSender = new RequestSender();
 
-                } else if (mode == BotMode.SQL_DIALECTS) {
-                    System.out.println("Режим: Перевод между SQL-диалектами");
-                    System.out.println("Выбранный диалект SQL: " + formatSqlDialect(selectedSqlDialect));
-                    System.out.println("Комментарии: " + (ResponseHandler.isComments() ? "включены" : "выключены"));
-                    System.out.println("Форматирование: " + (ResponseHandler.isFormatting() ? "включено" : "выключено"));
-                    System.out.println("Регистр ключевых слов: " + (ResponseHandler.isKeywordCase() ? "включён" : "выключен"));
-                }
-
-                ResponseHandler.setExpectingCodeInput(false);
                 try {
-                    sendMessage(chatId, "Обработка запроса.");
+                    String aiResponse = requestSender.send(gigaChatClient, prompt).toString();
+                    String formattedResponse = ResponseFormater.formatGigaChatResponse(aiResponse);
+
+                    // Отправляем результат пользователю с кнопкой "Вернуться в меню"
+                    sendMessageWithBackButton(chatId, formattedResponse);
+
+                    ResponseHandler.setExpectingCodeInput(false);
                 } catch (TelegramApiException e) {
                     throw new RuntimeException(e);
                 }
@@ -65,8 +70,8 @@ public class CodeConverterBot extends TelegramLongPollingBot {
                 if (response.getType() == ResponseType.START_MENU) {
                     try {
                         responseHandler.handleStartMenu(chatId);
-                    } catch (TelegramApiException e) {
-                        throw new RuntimeException(e);
+                    } catch (TelegramApiException ex) {
+                        ex.printStackTrace();
                     }
                 }
             }
@@ -78,24 +83,27 @@ public class CodeConverterBot extends TelegramLongPollingBot {
             try {
                 responseHandler.handleCallback(chatId, messageId, callbackData);
             } catch (TelegramApiException e) {
-                throw new RuntimeException(e);
+                e.printStackTrace();
             }
         }
     }
 
-    private void sendMessage(Long chatId, String text) throws TelegramApiException {
+    private void sendMessageWithBackButton(Long chatId, String aiResponse) throws TelegramApiException {
         var message = new SendMessage();
         message.setChatId(chatId.toString());
-        message.setText(text);
+        message.setText(aiResponse);
+
+        InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+        List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+
+        InlineKeyboardButton backButton = new InlineKeyboardButton("⬅️ Вернуться в меню");
+        backButton.setCallbackData("back_to_menu");
+
+        rows.add(List.of(backButton));
+        markup.setKeyboard(rows);
+
+        message.setReplyMarkup(markup);
         execute(message);
-    }
-
-    private String formatLang(String langCode) {
-        return langCode.substring(5).toUpperCase();
-    }
-
-    private String formatSqlDialect(String dialectCode) {
-        return dialectCode.substring(12).toUpperCase().replace("_", " ");
     }
 
     @Override

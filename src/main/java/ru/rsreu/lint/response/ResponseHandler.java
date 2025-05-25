@@ -6,8 +6,8 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMa
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.bots.AbsSender;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
-import ru.rsreu.lint.request.ContentDefiner;
 import ru.rsreu.lint.enums.BotMode;
+import ru.rsreu.lint.request.ContentDefiner;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -15,27 +15,23 @@ import java.util.List;
 public class ResponseHandler {
 
     private final AbsSender absSender;
-
     private final ContentDefiner contentDefiner;
 
+    // Состояние для ЯП
     private static String selectedLanguage = "lang_java";
-
     private static boolean optimize = true;
-
     private static boolean documentation = true;
+    private static boolean standards = true;
+    private static boolean tests = true;
 
-    private static boolean syntaxHighlight = true;
-
+    // Состояние для SQL
     private static String selectedSqlDialect = "sql_dialect_postgresql";
-
     private static boolean comments = true;
-
     private static boolean formatting = true;
-
     private static boolean keywordCase = true;
 
-    private static boolean expectingCodeInput = true;
-
+    // Общее состояние
+    private static boolean expectingCodeInput = false;
     private static BotMode currentMode = BotMode.NONE;
 
     public ResponseHandler(AbsSender absSender, ContentDefiner contentDefiner) {
@@ -90,8 +86,10 @@ public class ResponseHandler {
     private InlineKeyboardMarkup createAboutBotKeyboard() {
         InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
         List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+
         InlineKeyboardButton backButton = new InlineKeyboardButton("⬅️ Назад");
         backButton.setCallbackData("back_to_menu");
+
         rows.add(List.of(backButton));
         markup.setKeyboard(rows);
         return markup;
@@ -100,6 +98,7 @@ public class ResponseHandler {
     private InlineKeyboardMarkup createLanguageOptionsKeyboard() {
         InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
         List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+
         String[] languages = {"Java", "Python", "JavaScript", "C++", "C#", "Go", "Ruby", "Swift", "Kotlin", "Rust"};
         for (String lang : languages) {
             String code = "lang_" + lang.toLowerCase();
@@ -108,9 +107,11 @@ public class ResponseHandler {
             button.setCallbackData(code);
             rows.add(List.of(button));
         }
-        addToggleRow(rows, "toggle_optimize", "Оптимизация", optimize);
-        addToggleRow(rows, "toggle_documentation", "Документация", documentation);
-        addToggleRow(rows, "toggle_syntax_highlight", "Подсветка синтаксиса", syntaxHighlight);
+
+        addToggleRow(rows, "toggle_optimize", "Оптимизация кода", optimize);
+        addToggleRow(rows, "toggle_standards", "Соблюдение стандартов", standards);
+        addToggleRow(rows, "toggle_documentation", "Написание документации", documentation);
+        addToggleRow(rows, "toggle_tests", "Написание тестов", tests);
 
         InlineKeyboardButton backButton = new InlineKeyboardButton("⬅️ Назад");
         backButton.setCallbackData("back_to_menu");
@@ -119,6 +120,7 @@ public class ResponseHandler {
         continueButton.setCallbackData("continue_to_code_input");
 
         rows.add(List.of(backButton, continueButton));
+
         markup.setKeyboard(rows);
         return markup;
     }
@@ -126,6 +128,7 @@ public class ResponseHandler {
     private InlineKeyboardMarkup createSqlDialectOptionsKeyboard() {
         InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
         List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+
         String[] dialects = {"PostgreSQL", "MySQL", "MSSQL", "SQLite", "Oracle", "MariaDB", "SQL Server", "DB2", "Sybase", "Informix"};
         for (String dialect : dialects) {
             String code = "sql_dialect_" + dialect.toLowerCase().replace(" ", "_");
@@ -146,6 +149,7 @@ public class ResponseHandler {
         continueButton.setCallbackData("continue_to_code_input");
 
         rows.add(List.of(backButton, continueButton));
+
         markup.setKeyboard(rows);
         return markup;
     }
@@ -165,7 +169,8 @@ public class ResponseHandler {
         switch (callbackData) {
             case "toggle_optimize" -> optimize = !optimize;
             case "toggle_documentation" -> documentation = !documentation;
-            case "toggle_syntax_highlight" -> syntaxHighlight = !syntaxHighlight;
+            case "toggle_standards" -> standards = !standards;
+            case "toggle_tests" -> tests = !tests;
         }
         editMessageWithUpdatedKeyboard(chatId, messageId);
     }
@@ -193,6 +198,7 @@ public class ResponseHandler {
         message.setMessageId(messageId);
         message.setText(text);
         message.setReplyMarkup(markup);
+
         absSender.execute(message);
     }
 
@@ -205,6 +211,7 @@ public class ResponseHandler {
         message.setMessageId(messageId);
         message.setText(text);
         message.setReplyMarkup(markup);
+
         absSender.execute(message);
     }
 
@@ -269,6 +276,7 @@ public class ResponseHandler {
         rows.add(List.of(button1));
         rows.add(List.of(button2));
         rows.add(List.of(button3));
+
         markup.setKeyboard(rows);
         return markup;
     }
@@ -285,8 +293,12 @@ public class ResponseHandler {
         return documentation;
     }
 
-    public static boolean isSyntaxHighlight() {
-        return syntaxHighlight;
+    public static boolean isStandards() {
+        return standards;
+    }
+
+    public static boolean isTests() {
+        return tests;
     }
 
     public static String getSelectedSqlDialect() {
@@ -309,12 +321,12 @@ public class ResponseHandler {
         return expectingCodeInput;
     }
 
-    public static void setExpectingCodeInput(boolean value) {
-        expectingCodeInput = value;
-    }
-
     public static BotMode getCurrentMode() {
         return currentMode;
+    }
+
+    public static void setExpectingCodeInput(boolean value) {
+        expectingCodeInput = value;
     }
 
     public static void setCurrentMode(BotMode mode) {
