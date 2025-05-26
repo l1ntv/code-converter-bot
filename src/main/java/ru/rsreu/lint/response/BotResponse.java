@@ -3,7 +3,9 @@ package ru.rsreu.lint.response;
 import ru.rsreu.lint.enums.ResponseType;
 
 public class BotResponse {
+
     private final ResponseType type;
+
     private final String message;
 
     public BotResponse(ResponseType type, String message) {

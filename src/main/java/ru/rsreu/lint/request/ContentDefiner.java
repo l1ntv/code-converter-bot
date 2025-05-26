@@ -6,6 +6,7 @@ import ru.rsreu.lint.response.BotResponse;
 public class ContentDefiner {
 
     public BotResponse getResponse(String command) {
+        
         if (command.startsWith("lang_")) {
             return new BotResponse(ResponseType.SELECTED_LANGUAGE, "Выбран язык: " + formatLang(command));
         } else if (command.startsWith("toggle_")) {

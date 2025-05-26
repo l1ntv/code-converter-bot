@@ -22,8 +22,11 @@ import java.util.List;
 public class CodeConverterBot extends TelegramLongPollingBot {
 
     private final String BOT_USERNAME;
+
     private final String BOT_TOKEN;
+
     private final ContentDefiner contentDefiner = new ContentDefiner();
+
     private final ResponseHandler responseHandler;
 
     public CodeConverterBot(String botToken, String botUsername) {
@@ -43,28 +46,32 @@ public class CodeConverterBot extends TelegramLongPollingBot {
                 BotMode mode = ResponseHandler.getCurrentMode();
 
                 GigaChatClient gigaChatClient = GigaChatClientRegister.register();
-                String prompt = PromtFormer.formProgrammingConvertPromt(
-                        selectedLanguage,
-                        messageText,
-                        ResponseHandler.isOptimize(),
-                        ResponseHandler.isDocumentation(),
-                        ResponseHandler.isStandards(),
-                        ResponseHandler.isTests()
-                );
+                String prompt = "";
+                if (mode.equals(BotMode.LANGUAGE_TRANSLATION)) {
+                    prompt = PromtFormer.formProgrammingConvertPromt(
+                            selectedLanguage,
+                            messageText,
+                            ResponseHandler.isOptimize(),
+                            ResponseHandler.isDocumentation(),
+                            ResponseHandler.isStandards(),
+                            ResponseHandler.isTests()
+                    );
+                } else if (mode.equals(BotMode.SQL_DIALECTS)) {
+                    prompt = PromtFormer.formSqlConvertPromt(
+                            ResponseHandler.getSelectedSqlDialect(),
+                            messageText,
+                            ResponseHandler.isComments(),
+                            ResponseHandler.isFormatting(),
+                            ResponseHandler.isKeywordCase()
+                    );
+                }
 
                 RequestSender requestSender = new RequestSender();
-
-                try {
-                    String aiResponse = requestSender.send(gigaChatClient, prompt).toString();
-                    String formattedResponse = ResponseFormater.formatGigaChatResponse(aiResponse);
-
-                    // Отправляем результат пользователю с кнопкой "Вернуться в меню"
-                    sendMessageWithBackButton(chatId, formattedResponse);
-
-                    ResponseHandler.setExpectingCodeInput(false);
-                } catch (TelegramApiException e) {
-                    throw new RuntimeException(e);
-                }
+                System.setProperty("https.protocols", "TLSv1,TLSv1.1,TLSv1.2");
+                String aiResponse = requestSender.send(gigaChatClient, prompt).toString();
+                String formattedResponse = ResponseFormater.formatGigaChatResponse(aiResponse);
+                sendMessageWithBackButton(chatId, formattedResponse);
+                ResponseHandler.setExpectingCodeInput(false);
             } else {
                 BotResponse response = contentDefiner.getResponse(messageText);
                 if (response.getType() == ResponseType.START_MENU) {
@@ -88,22 +95,23 @@ public class CodeConverterBot extends TelegramLongPollingBot {
         }
     }
 
-    private void sendMessageWithBackButton(Long chatId, String aiResponse) throws TelegramApiException {
-        var message = new SendMessage();
-        message.setChatId(chatId.toString());
-        message.setText(aiResponse);
-
-        InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
-        List<List<InlineKeyboardButton>> rows = new ArrayList<>();
-
-        InlineKeyboardButton backButton = new InlineKeyboardButton("⬅️ Вернуться в меню");
-        backButton.setCallbackData("back_to_menu");
-
-        rows.add(List.of(backButton));
-        markup.setKeyboard(rows);
-
-        message.setReplyMarkup(markup);
-        execute(message);
+    private void sendMessageWithBackButton(Long chatId, String aiResponse) {
+        try {
+            var message = new SendMessage();
+            message.setChatId(chatId.toString());
+            message.setText(aiResponse);
+            message.setParseMode("Markdown");
+            InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+            List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+            InlineKeyboardButton backButton = new InlineKeyboardButton("⬅️ Вернуться в меню");
+            backButton.setCallbackData("back_to_menu");
+            rows.add(List.of(backButton));
+            markup.setKeyboard(rows);
+            message.setReplyMarkup(markup);
+            execute(message);
+        } catch (TelegramApiException e) {
+            e.printStackTrace();
+        }
     }
 
     @Override

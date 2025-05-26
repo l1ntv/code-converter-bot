@@ -15,23 +15,29 @@ import java.util.List;
 public class ResponseHandler {
 
     private final AbsSender absSender;
+
     private final ContentDefiner contentDefiner;
 
-    // Состояние для ЯП
     private static String selectedLanguage = "lang_java";
+
     private static boolean optimize = true;
+
     private static boolean documentation = true;
+
     private static boolean standards = true;
+
     private static boolean tests = true;
 
-    // Состояние для SQL
     private static String selectedSqlDialect = "sql_dialect_postgresql";
+
     private static boolean comments = true;
+
     private static boolean formatting = true;
+
     private static boolean keywordCase = true;
 
-    // Общее состояние
     private static boolean expectingCodeInput = false;
+
     private static BotMode currentMode = BotMode.NONE;
 
     public ResponseHandler(AbsSender absSender, ContentDefiner contentDefiner) {
